@@ -1,0 +1,618 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#062218">
+<title>Ballduell – Errate den Fußballer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@500;700;800&family=Inter+Tight:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --pitch-900:#062218;--pitch-800:#0A3527;--pitch-700:#104934;
+  --chalk:#EEF3E6;--chalk-60:rgba(238,243,230,.60);--chalk-35:rgba(238,243,230,.35);
+  --chalk-14:rgba(238,243,230,.14);--flood:#FFC93C;--card-red:#E4453A;--ok:#63D08C;
+  --r:3px;--shell:460px;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{background:var(--pitch-900);color:var(--chalk);font-family:"Inter Tight",system-ui,sans-serif;
+  font-size:16px;line-height:1.45;-webkit-font-smoothing:antialiased;min-height:100dvh}
+.display{font-family:"Big Shoulders Display","Inter Tight",sans-serif;font-weight:800;line-height:.88}
+.shell{max-width:var(--shell);margin:0 auto;min-height:100dvh;display:flex;flex-direction:column;
+  padding:0 18px env(safe-area-inset-bottom) 18px}
+.screen{display:none;flex:1;flex-direction:column;padding-bottom:24px}
+.screen.on{display:flex}
+
+/* Anzeigetafel */
+.board{position:relative;margin:0 -18px 20px;padding:16px 18px 12px;background:var(--pitch-800);
+  border-bottom:1px solid var(--chalk-14);overflow:hidden}
+.board::after{content:"";position:absolute;left:50%;top:-58px;width:190px;height:190px;
+  transform:translateX(-50%);border:1px solid var(--chalk-14);border-radius:50%;pointer-events:none}
+.board-inner{position:relative;display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:10px}
+.side{min-width:0}.side.right{text-align:right}
+.who{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.elo{font-size:11px;color:var(--chalk-60)}
+.score{display:flex;align-items:baseline;gap:8px}
+.score span{font-family:"Big Shoulders Display",sans-serif;font-weight:800;font-size:50px;
+  line-height:.82;font-variant-numeric:tabular-nums}
+.score i{font-style:normal;color:var(--chalk-35);font-size:25px;font-family:"Big Shoulders Display",sans-serif}
+.strip{display:flex;gap:9px;margin-top:14px;justify-content:space-between}
+.grp{display:flex;flex-direction:column;gap:3px;flex:1}
+.grp-row{display:flex;gap:3px}
+.pip{flex:1;height:6px;border-radius:1px;background:var(--chalk-14)}
+.pip.p3{background:var(--ok)}
+.pip.p2{background:#B9D96F}
+.pip.p1{background:var(--flood)}
+.pip.p0{background:var(--card-red)}
+.grp-no{font-size:9px;color:var(--chalk-35);text-align:center;margin-top:1px;font-variant-numeric:tabular-nums}
+.grp.live .grp-no{color:var(--flood)}
+
+/* Start */
+.hero{padding:32px 0 4px}
+.wordmark{font-size:clamp(70px,22vw,110px);letter-spacing:-.02em}
+.wordmark em{font-style:normal;color:var(--flood)}
+.tagline{margin:14px 0 0;max-width:32ch;color:var(--chalk-60);font-size:15px}
+.rulebox{margin-top:auto;border-top:1px solid var(--chalk-14);padding-top:16px}
+.rule{display:flex;gap:14px;padding:7px 0;font-size:14px;color:var(--chalk-60)}
+.rule b{font-family:"Big Shoulders Display",sans-serif;font-size:22px;font-weight:700;
+  color:var(--chalk);min-width:30px;line-height:1}
+.opp-card{margin-top:24px;border:1px solid var(--chalk-14);border-left:3px solid var(--flood);
+  border-radius:var(--r);padding:13px 15px;display:flex;align-items:center;gap:13px}
+.crest{width:40px;height:40px;border-radius:50%;flex:none;display:grid;place-items:center;
+  background:var(--pitch-700);font-family:"Big Shoulders Display",sans-serif;font-weight:800;
+  font-size:20px;color:var(--flood)}
+.opp-card .meta{font-size:12px;color:var(--chalk-60)}
+.datastate{margin-top:16px;font-size:13px;color:var(--chalk-60);border-left:3px solid var(--chalk-35);padding-left:12px}
+.datastate.warn{border-color:var(--flood);color:var(--chalk)}
+
+/* Buttons */
+.btn{display:block;width:100%;border:0;border-radius:var(--r);cursor:pointer;font-family:inherit;
+  font-size:16px;font-weight:600;padding:16px;background:var(--flood);color:var(--pitch-900);
+  transition:transform .12s ease}
+.btn:active{transform:scale(.985)}
+.btn.ghost{background:transparent;color:var(--chalk);border:1px solid var(--chalk-35)}
+.btn:disabled{opacity:.4;cursor:default}
+.btn+.btn{margin-top:10px}
+:focus-visible{outline:2px solid var(--flood);outline-offset:3px}
+
+/* Kategorien */
+.head{margin:6px 0 22px}
+.head h2{margin:0;font-size:30px;font-family:"Big Shoulders Display",sans-serif;font-weight:700;line-height:1}
+.head p{margin:6px 0 0;color:var(--chalk-60);font-size:14px}
+.cats{display:flex;flex-direction:column;gap:10px}
+.cat{width:100%;text-align:left;cursor:pointer;background:var(--pitch-800);border:1px solid var(--chalk-14);
+  border-left:3px solid var(--chalk-35);border-radius:var(--r);padding:15px 16px;color:var(--chalk);
+  display:flex;align-items:center;gap:14px;font-family:inherit;transition:border-color .15s,background .15s}
+.cat:hover,.cat:focus-visible{border-left-color:var(--flood);background:var(--pitch-700)}
+.cat[disabled]{opacity:.32;cursor:default}
+.cat .glyph{font-size:22px;line-height:1}
+.cat .name{font-family:"Big Shoulders Display",sans-serif;font-weight:700;font-size:23px;line-height:1;display:block}
+.cat .sub{font-size:12px;color:var(--chalk-60);margin-top:2px;display:block}
+.cat.picked{border-left-color:var(--flood);background:var(--pitch-700)}
+.waiting{color:var(--chalk-60);font-size:14px;margin-top:18px}
+
+/* Rätsel */
+.qmeta{display:flex;justify-content:space-between;align-items:center;font-size:12px;color:var(--chalk-60);margin-bottom:10px}
+.timer{height:3px;background:var(--chalk-14);border-radius:2px;overflow:hidden;margin-bottom:22px}
+.timer i{display:block;height:100%;width:100%;background:var(--flood);transform-origin:left center}
+.timer.low i{background:var(--card-red)}
+.career{border-left:1px solid var(--chalk-35);margin:0 0 18px;padding:2px 0 2px 0}
+.stop{position:relative;padding:0 0 16px 20px}
+.stop:last-child{padding-bottom:2px}
+.stop::before{content:"";position:absolute;left:-4px;top:7px;width:7px;height:7px;border-radius:50%;
+  background:var(--flood)}
+.stop .club{font-size:19px;font-weight:600;line-height:1.2}
+.stop .yr{font-size:12px;color:var(--chalk-60);font-variant-numeric:tabular-nums}
+.hints{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:16px}
+.hint{font-family:inherit;font-size:13px;font-weight:500;cursor:pointer;background:transparent;
+  color:var(--chalk-60);border:1px solid var(--chalk-35);border-radius:var(--r);padding:7px 11px}
+.hint:hover:not(:disabled){color:var(--chalk);border-color:var(--flood)}
+.hint.used{background:var(--pitch-700);color:var(--chalk);border-color:var(--pitch-700);cursor:default}
+.hint:disabled{opacity:.35;cursor:default}
+.guessbox{position:relative;margin-top:auto}
+.guess{width:100%;font:inherit;font-size:16px;background:var(--pitch-800);color:var(--chalk);
+  border:1px solid var(--chalk-35);border-radius:var(--r);padding:15px 16px}
+.guess::placeholder{color:var(--chalk-35)}
+.sugg{position:absolute;bottom:calc(100% + 6px);left:0;right:0;background:var(--pitch-800);
+  border:1px solid var(--chalk-35);border-radius:var(--r);max-height:230px;overflow:auto;display:none;z-index:5}
+.sugg.on{display:block}
+.sugg button{display:block;width:100%;text-align:left;background:transparent;border:0;color:var(--chalk);
+  font:inherit;font-size:15px;padding:12px 15px;cursor:pointer;border-bottom:1px solid var(--chalk-14)}
+.sugg button:last-child{border-bottom:0}
+.sugg button:hover,.sugg button.sel{background:var(--pitch-700)}
+.verdict{margin-top:14px;min-height:22px;font-size:14px;color:var(--chalk-60)}
+.reveal{border:1px solid var(--chalk-14);border-left:3px solid var(--flood);border-radius:var(--r);
+  padding:14px 15px;margin-top:auto}
+.reveal .nm{font-family:"Big Shoulders Display",sans-serif;font-weight:800;font-size:34px;line-height:1}
+.reveal .dt{font-size:13px;color:var(--chalk-60);margin-top:5px}
+.reveal .pts{margin-top:11px;font-size:14px;display:flex;justify-content:space-between;gap:12px;
+  border-top:1px solid var(--chalk-14);padding-top:10px}
+.win{color:var(--ok)}.lose{color:var(--card-red)}
+
+/* Abschluss */
+.recap{border-top:1px solid var(--chalk-14);margin-top:14px;padding-top:14px}
+.recap-row{display:flex;justify-content:space-between;align-items:center;padding:9px 0;font-size:14px;
+  border-bottom:1px solid var(--chalk-14)}
+.recap-row:last-child{border-bottom:0}
+.dots{display:flex;gap:5px}
+.dot{width:11px;height:11px;border-radius:50%;background:var(--chalk-14)}
+.dot.p3{background:var(--ok)}.dot.p2{background:#B9D96F}.dot.p1{background:var(--flood)}.dot.p0{background:var(--card-red)}
+.final{padding:36px 0 10px}
+.final .verdict-big{font-size:clamp(50px,15vw,74px)}
+.final .fscore{font-size:clamp(60px,19vw,92px);margin-top:8px;font-variant-numeric:tabular-nums}
+.final .fscore i{font-style:normal;color:var(--chalk-35)}
+.won{color:var(--flood)}.lost{color:var(--card-red)}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<div class="shell">
+
+  <section class="screen on" id="s-home">
+    <div class="hero">
+      <h1 class="display wordmark">Ball<em>duell</em></h1>
+      <p class="tagline">Errate den Fußballer an seinem Karriereweg. Sechs Runden, achtzehn Spieler, ein Gegner.</p>
+    </div>
+
+    <div class="opp-card">
+      <div class="crest" id="home-crest">–</div>
+      <div>
+        <div style="font-weight:600" id="home-opp">Gegner wird gesucht</div>
+        <div class="meta" id="home-opp-meta">Zufälliger Gegner aus der Liga</div>
+      </div>
+    </div>
+
+    <div class="datastate" id="datastate">Spielerdaten werden geladen …</div>
+
+    <div class="rulebox">
+      <div class="rule"><b>3</b><span>Punkte für einen Treffer ohne Hinweis</span></div>
+      <div class="rule"><b>–1</b><span>pro Hinweis, den du dir holst</span></div>
+      <div class="rule"><b>45</b><span>Sekunden pro Spieler</span></div>
+    </div>
+
+    <div style="margin-top:20px">
+      <button class="btn" id="btn-start">Duell starten</button>
+      <button class="btn ghost" id="btn-load">Eigene players.json laden</button>
+      <input type="file" id="file" accept=".json" hidden>
+    </div>
+  </section>
+
+  <section class="screen" id="s-match">
+    <div class="board">
+      <div class="board-inner">
+        <div class="side"><div class="who">Du</div><div class="elo" id="b-me-elo">Elo 1000</div></div>
+        <div class="score"><span id="b-s1">0</span><i>:</i><span id="b-s2">0</span></div>
+        <div class="side right"><div class="who" id="b-opp">Gegner</div><div class="elo" id="b-opp-elo">Elo 1000</div></div>
+      </div>
+      <div class="strip" id="strip"></div>
+    </div>
+
+    <div id="v-cat" style="display:none;flex:1;flex-direction:column">
+      <div class="head"><h2 id="cat-title">Runde 1</h2><p id="cat-sub"></p></div>
+      <div class="cats" id="cats"></div>
+      <p class="waiting" id="cat-wait" style="display:none"></p>
+    </div>
+
+    <div id="v-q" style="display:none;flex:1;flex-direction:column">
+      <div class="qmeta"><span id="q-cat"></span><span id="q-count"></span></div>
+      <div class="timer" id="timer"><i id="timer-bar"></i></div>
+      <div class="career" id="career"></div>
+      <div class="hints" id="hints"></div>
+      <div class="guessbox" id="guessbox">
+        <div class="sugg" id="sugg"></div>
+        <input class="guess" id="guess" type="text" autocomplete="off" autocapitalize="off"
+               spellcheck="false" placeholder="Name eintippen …">
+      </div>
+      <p class="verdict" id="verdict" aria-live="polite"></p>
+    </div>
+
+    <div id="v-rev" style="display:none;flex:1;flex-direction:column">
+      <div class="reveal">
+        <div class="nm" id="rev-name"></div>
+        <div class="dt" id="rev-meta"></div>
+        <div class="pts"><span id="rev-me"></span><span id="rev-opp"></span></div>
+      </div>
+      <div style="margin-top:20px"><button class="btn" id="btn-cont">Weiter</button></div>
+    </div>
+
+    <div id="v-recap" style="display:none;flex:1;flex-direction:column">
+      <div class="head"><h2 id="recap-title"></h2><p id="recap-sub"></p></div>
+      <div class="recap" id="recap-list"></div>
+      <div style="margin-top:auto;padding-top:22px"><button class="btn" id="btn-next"></button></div>
+    </div>
+  </section>
+
+  <section class="screen" id="s-end">
+    <div class="final">
+      <h2 class="display verdict-big" id="end-verdict"></h2>
+      <div class="display fscore"><span id="end-s1">0</span><i>:</i><span id="end-s2">0</span></div>
+      <p class="tagline" id="end-note"></p>
+    </div>
+    <div class="recap" id="end-list"></div>
+    <div style="margin-top:auto;padding-top:24px">
+      <button class="btn" id="btn-rematch">Revanche</button>
+      <button class="btn ghost" id="btn-home">Zurück zum Start</button>
+    </div>
+  </section>
+</div>
+
+<script>
+/* ====================================================================
+   BALLDUELL v2 – Errate den Fußballer
+   Datenformat identisch zur Ausgabe des Konverters:
+   { players:[ {id,n,f,b,nat,pos,c:[[Verein,von,bis],...],t:[Tags]} ] }
+==================================================================== */
+const ROUNDS = 6, PER_ROUND = 3, CHOICES = 3, SECONDS = 45;
+
+const CATS = [
+  {id:'de',      name:'Deutschland',   glyph:'🥨', sub:'War mal in Deutschland unter Vertrag'},
+  {id:'en',      name:'England',       glyph:'🦁', sub:'Mit Station auf der Insel'},
+  {id:'es',      name:'Spanien',       glyph:'🐂', sub:'La Liga irgendwo im Lebenslauf'},
+  {id:'it',      name:'Italien',       glyph:'🍝', sub:'Serie A irgendwo im Lebenslauf'},
+  {id:'sa',      name:'Südamerika',    glyph:'🌴', sub:'Boca, Flamengo, Santos und Co.'},
+  {id:'welt',    name:'Weltenbummler', glyph:'✈️', sub:'Fünf Vereine oder mehr'},
+  {id:'legende', name:'Legenden',      glyph:'👑', sub:'Karriere längst beendet'},
+  {id:'aktuell', name:'Aktuell',       glyph:'⚡', sub:'Noch im Geschäft'},
+];
+
+/* ---- Notdaten, damit sofort spielbar ------------------------------
+   ACHTUNG: reine Testdaten, von Hand getippt, ohne Jahresangaben.
+   Vor jedem ernsthaften Einsatz durch players.json ersetzen.        */
+const SEED = {source:'DEMO', players:[
+ ['Lionel Messi','Argentinien','Stürmer',['FC Barcelona','Paris Saint-Germain','Inter Miami'],['es','fr','us','aktuell','top']],
+ ['Cristiano Ronaldo','Portugal','Stürmer',['Sporting CP','Manchester United','Real Madrid','Juventus Turin','Manchester United','Al-Nassr'],['pt','en','es','it','welt','aktuell','top']],
+ ['Robert Lewandowski','Polen','Stürmer',['Lech Posen','Borussia Dortmund','FC Bayern München','FC Barcelona'],['de','es','aktuell','top']],
+ ['Toni Kroos','Deutschland','Mittelfeld',['FC Bayern München','Bayer 04 Leverkusen','Real Madrid'],['de','es','top']],
+ ['Mesut Özil','Deutschland','Mittelfeld',['FC Schalke 04','Werder Bremen','Real Madrid','FC Arsenal','Fenerbahce'],['de','es','en','tr','welt','top']],
+ ['Miroslav Klose','Deutschland','Stürmer',['1. FC Kaiserslautern','Werder Bremen','FC Bayern München','Lazio Rom'],['de','it','legende','top']],
+ ['Mario Götze','Deutschland','Mittelfeld',['Borussia Dortmund','FC Bayern München','Borussia Dortmund','PSV Eindhoven','Eintracht Frankfurt'],['de','nl','welt','aktuell']],
+ ['Kevin De Bruyne','Belgien','Mittelfeld',['KRC Genk','FC Chelsea','Werder Bremen','VfL Wolfsburg','Manchester City'],['en','de','welt','aktuell','top']],
+ ['Zlatan Ibrahimovic','Schweden','Stürmer',['Malmö FF','Ajax Amsterdam','Juventus Turin','Inter Mailand','FC Barcelona','AC Mailand','Paris Saint-Germain','Manchester United','LA Galaxy','AC Mailand'],['nl','it','es','fr','en','us','welt','legende','top']],
+ ['Thierry Henry','Frankreich','Stürmer',['AS Monaco','Juventus Turin','FC Arsenal','FC Barcelona','New York Red Bulls'],['fr','it','en','es','us','welt','legende','top']],
+ ['Andrea Pirlo','Italien','Mittelfeld',['Brescia Calcio','Inter Mailand','AC Mailand','Juventus Turin','New York City FC'],['it','us','welt','legende']],
+ ['Xabi Alonso','Spanien','Mittelfeld',['Real Sociedad','FC Liverpool','Real Madrid','FC Bayern München'],['es','en','de','legende']],
+ ['Luka Modric','Kroatien','Mittelfeld',['Dinamo Zagreb','Tottenham Hotspur','Real Madrid'],['en','es','aktuell','top']],
+ ['Arjen Robben','Niederlande','Flügelspieler',['FC Groningen','PSV Eindhoven','FC Chelsea','Real Madrid','FC Bayern München','FC Groningen'],['nl','en','es','de','welt','legende']],
+ ['Franck Ribéry','Frankreich','Flügelspieler',['Olympique Marseille','FC Bayern München','AC Florenz','US Salernitana'],['fr','de','it','legende']],
+ ['Manuel Neuer','Deutschland','Torwart',['FC Schalke 04','FC Bayern München'],['de','aktuell','top']],
+ ['Jürgen Klinsmann','Deutschland','Stürmer',['VfB Stuttgart','Inter Mailand','AS Monaco','Tottenham Hotspur','FC Bayern München','Sampdoria Genua','Tottenham Hotspur'],['de','it','fr','en','welt','legende']],
+ ['Michael Ballack','Deutschland','Mittelfeld',['1. FC Kaiserslautern','Bayer 04 Leverkusen','FC Bayern München','FC Chelsea','Bayer 04 Leverkusen'],['de','en','welt','legende']],
+ ['David Beckham','England','Mittelfeld',['Manchester United','Real Madrid','LA Galaxy','AC Mailand','Paris Saint-Germain'],['en','es','us','it','fr','welt','legende','top']],
+ ['Ronaldinho','Brasilien','Mittelfeld',['Grêmio Porto Alegre','Paris Saint-Germain','FC Barcelona','AC Mailand','Flamengo','Atlético Mineiro'],['sa','fr','es','it','welt','legende','top']],
+ ['Ronaldo','Brasilien','Stürmer',['Cruzeiro','PSV Eindhoven','FC Barcelona','Inter Mailand','Real Madrid','AC Mailand','Corinthians São Paulo'],['sa','nl','es','it','welt','legende','top']],
+ ['Kaká','Brasilien','Mittelfeld',['FC São Paulo','AC Mailand','Real Madrid','AC Mailand','Orlando City'],['sa','it','es','us','welt','legende']],
+ ['Neymar','Brasilien','Stürmer',['FC Santos','FC Barcelona','Paris Saint-Germain','Al-Hilal','FC Santos'],['sa','es','fr','welt','aktuell','top']],
+ ['Luis Suárez','Uruguay','Stürmer',['Nacional Montevideo','FC Groningen','Ajax Amsterdam','FC Liverpool','FC Barcelona','Atlético Madrid','Grêmio Porto Alegre','Inter Miami'],['sa','nl','en','es','us','welt','aktuell','top']],
+ ['Sadio Mané','Senegal','Flügelspieler',['FC Metz','RB Salzburg','FC Southampton','FC Liverpool','FC Bayern München','Al-Nassr'],['fr','en','de','welt','aktuell']],
+ ['Mohamed Salah','Ägypten','Flügelspieler',['FC Basel','FC Chelsea','AC Florenz','AS Rom','FC Liverpool'],['en','it','welt','aktuell','top']],
+ ['Sergio Ramos','Spanien','Abwehr',['FC Sevilla','Real Madrid','Paris Saint-Germain','FC Sevilla'],['es','fr','aktuell','top']],
+ ['Andrés Iniesta','Spanien','Mittelfeld',['FC Barcelona','Vissel Kobe'],['es','legende','top']],
+ ['Kylian Mbappé','Frankreich','Stürmer',['AS Monaco','Paris Saint-Germain','Real Madrid'],['fr','es','aktuell','top']],
+ ['Erling Haaland','Norwegen','Stürmer',['Bryne FK','Molde FK','RB Salzburg','Borussia Dortmund','Manchester City'],['de','en','welt','aktuell','top']],
+ ['Ilkay Gündogan','Deutschland','Mittelfeld',['1. FC Nürnberg','Borussia Dortmund','Manchester City','FC Barcelona','Manchester City'],['de','en','es','welt','aktuell']],
+ ['Lukas Podolski','Deutschland','Stürmer',['1. FC Köln','FC Bayern München','1. FC Köln','FC Arsenal','Inter Mailand','Galatasaray','Vissel Kobe','Antalyaspor','Górnik Zabrze'],['de','en','it','tr','welt','aktuell']],
+ ['Claudio Pizarro','Peru','Stürmer',['Werder Bremen','FC Bayern München','FC Chelsea','Werder Bremen','FC Bayern München','1. FC Köln','Werder Bremen'],['sa','de','en','welt','legende']],
+ ['Jadon Sancho','England','Flügelspieler',['Manchester City','Borussia Dortmund','Manchester United','Borussia Dortmund'],['en','de','aktuell']],
+].map((p,i)=>({id:'seed'+i, n:p[0], f:70, b:null, nat:p[1], pos:p[2],
+               c:p[3].map(c=>[c,null,null]), t:p[4]}))};
+
+const OPPONENTS = [
+  ['Kevin','Tribünen-Kevin',1042],['Meike','Meike vom Block',1118],
+  ['Sami','Sami Steilpass',987],['Jonas','Jonas Konterkönig',1163],
+  ['Nele','Nele Notbremse',1071],['Tarek','Tarek Traumtor',1005],
+];
+
+/* ---------- Daten laden ---------- */
+let DB = null, NAMES = [], IS_DEMO = true;
+const $ = s => document.querySelector(s);
+const norm = s => s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+                   .replace(/[^a-z0-9 ]/g,'').replace(/\s+/g,' ').trim();
+
+function useData(json, demo){
+  DB = json.players.filter(p => p.c && p.c.length >= 2);
+  IS_DEMO = demo;
+  NAMES = DB.map(p => ({n:p.n, k:norm(p.n)}));
+  const el = $('#datastate');
+  if(demo){
+    el.className = 'datastate warn';
+    el.innerHTML = `<strong>Demo-Daten aktiv – ${DB.length} Spieler.</strong> Nur zum Ausprobieren.
+      Lad deine eigene <code>players.json</code>, sobald der Konverter durch ist.`;
+  } else {
+    el.className = 'datastate';
+    el.textContent = `${DB.length.toLocaleString('de')} Spieler geladen${json.generated ? ' · Stand '+json.generated : ''}.`;
+  }
+}
+
+fetch('players.json')
+  .then(r => r.ok ? r.json() : Promise.reject())
+  .then(j => useData(j, false))
+  .catch(() => useData(SEED, true));
+
+$('#btn-load').onclick = () => $('#file').click();
+$('#file').onchange = async e => {
+  const f = e.target.files[0]; if(!f) return;
+  try{
+    const j = JSON.parse(await f.text());
+    if(!Array.isArray(j.players)) throw new Error('players fehlt');
+    useData(j, false);
+  }catch(err){
+    $('#datastate').className = 'datastate warn';
+    $('#datastate').textContent = 'Datei nicht lesbar: ' + (err.message||err);
+  }
+};
+
+/* ---------- Zustand ---------- */
+let G = null, timerId = null, deadline = 0, locked = false, selIdx = -1;
+const shuffle = a => a.map(v=>[Math.random(),v]).sort((x,y)=>x[0]-y[0]).map(p=>p[1]);
+const show = id => document.querySelectorAll('.screen').forEach(s=>s.classList.toggle('on', s.id===id));
+const view = id => ['v-cat','v-q','v-rev','v-recap'].forEach(v=>
+  $('#'+v).style.display = (v===id) ? 'flex' : 'none');
+
+function newGame(){
+  const o = OPPONENTS[Math.floor(Math.random()*OPPONENTS.length)];
+  G = {me:{score:0}, opp:{initial:o[0][0], name:o[1], elo:o[2], score:0, skill:.45+Math.random()*.3},
+       round:0, idx:0, used:new Set(), rounds:[], cur:null};
+  $('#b-opp').textContent = G.opp.name;
+  $('#b-opp-elo').textContent = 'Elo ' + G.opp.elo;
+  buildStrip(); paintScore();
+}
+
+function buildStrip(){
+  const s = $('#strip'); s.innerHTML = '';
+  for(let r=0;r<ROUNDS;r++){
+    const g = document.createElement('div'); g.className='grp'; g.dataset.round=r;
+    for(let side=0;side<2;side++){
+      const row = document.createElement('div'); row.className='grp-row';
+      for(let q=0;q<PER_ROUND;q++){
+        const p = document.createElement('div'); p.className='pip';
+        p.dataset.k = `${r}-${side}-${q}`; row.appendChild(p);
+      }
+      g.appendChild(row);
+    }
+    const no = document.createElement('div'); no.className='grp-no'; no.textContent = r+1;
+    g.appendChild(no); s.appendChild(g);
+  }
+}
+function paintScore(){
+  $('#b-s1').textContent = G.me.score; $('#b-s2').textContent = G.opp.score;
+  document.querySelectorAll('.grp').forEach(g => g.classList.toggle('live', +g.dataset.round === G.round));
+}
+function pip(side, pts){
+  const el = document.querySelector(`[data-k="${G.round}-${side}-${G.idx}"]`);
+  if(el) el.classList.add('p'+pts);
+}
+
+/* ---------- Kategoriewahl ---------- */
+function pool(tag){ return DB.filter(p => p.t && p.t.includes(tag)); }
+
+function startRound(){
+  if(G.round >= ROUNDS) return endGame();
+  const iChoose = G.round % 2 === 0;
+  G.cur = {cat:null, list:[], mine:[], theirs:[]};
+  view('v-cat'); paintScore();
+
+  const usable = CATS.filter(c => pool(c.id).length >= PER_ROUND + 2);
+  const offered = shuffle(usable).slice(0, CHOICES);
+
+  $('#cat-title').textContent = `Runde ${G.round+1} – ${iChoose ? 'du wählst' : G.opp.name.split(' ')[0] + ' wählt'}`;
+  $('#cat-sub').textContent = iChoose
+    ? 'Aus welchem Topf sollen die drei Spieler kommen?'
+    : 'Dein Gegner ist am Zug.';
+
+  const box = $('#cats'); box.innerHTML = ''; $('#cat-wait').style.display = 'none';
+  offered.forEach(c => {
+    const b = document.createElement('button');
+    b.className = 'cat'; b.type = 'button';
+    b.innerHTML = `<span class="glyph">${c.glyph}</span><span>
+      <span class="name">${c.name}</span><span class="sub">${c.sub}</span></span>`;
+    if(iChoose) b.onclick = () => pickCat(c); else b.disabled = true;
+    box.appendChild(b);
+  });
+
+  if(!iChoose){
+    $('#cat-wait').style.display = 'block';
+    $('#cat-wait').textContent = G.opp.name + ' überlegt …';
+    const pick = offered[Math.floor(Math.random()*offered.length)];
+    setTimeout(() => {
+      [...box.children].forEach((el,i) => { if(offered[i].id === pick.id) el.classList.add('picked'); });
+      $('#cat-wait').textContent = pick.name + ' – los geht’s.';
+      setTimeout(() => pickCat(pick), 900);
+    }, 1100);
+  }
+}
+
+function pickCat(c){
+  const avail = pool(c.id).filter(p => !G.used.has(p.id));
+  const take = shuffle(avail).slice(0, PER_ROUND);
+  take.forEach(p => G.used.add(p.id));
+  G.cur.cat = c; G.cur.list = take; G.idx = 0;
+  askPlayer();
+}
+
+/* ---------- Rätsel ---------- */
+let hintsUsed = 0, tries = 0;
+
+function askPlayer(){
+  const p = G.cur.list[G.idx];
+  locked = false; hintsUsed = 0; tries = 0; selIdx = -1;
+  view('v-q');
+  $('#q-cat').textContent = G.cur.cat.name;
+  $('#q-count').textContent = `Spieler ${G.idx+1} von ${PER_ROUND}`;
+  $('#verdict').textContent = '';
+  $('#guess').value = ''; $('#sugg').classList.remove('on');
+
+  $('#career').innerHTML = p.c.map(([club, a, b]) => `
+    <div class="stop">
+      <div class="club">${esc(club)}</div>
+      ${a || b ? `<div class="yr">${a||'?'}${b ? ' – '+b : ' – heute'}</div>` : ''}
+    </div>`).join('');
+
+  const hints = [
+    p.nat ? {l:'Nationalität', v:p.nat} : null,
+    p.pos ? {l:'Position', v:p.pos} : null,
+    {l:'Initialen', v:p.n.split(' ').map(w=>w[0]).join('.') + '.' + (p.b ? ' · Jahrgang '+p.b : '')},
+  ].filter(Boolean);
+
+  $('#hints').innerHTML = hints.map((h,i) =>
+    `<button class="hint" data-i="${i}">${h.l} <span style="opacity:.6">–1</span></button>`).join('');
+  $('#hints').querySelectorAll('.hint').forEach(b => {
+    b.onclick = () => {
+      if(locked || b.classList.contains('used')) return;
+      const h = hints[+b.dataset.i];
+      b.classList.add('used'); b.innerHTML = `${h.l}: <strong>${esc(h.v)}</strong>`;
+      hintsUsed++;
+    };
+  });
+
+  runTimer();
+  setTimeout(() => $('#guess').focus({preventScroll:true}), 60);
+}
+
+function runTimer(){
+  const bar = $('#timer-bar'), wrap = $('#timer');
+  wrap.classList.remove('low');
+  deadline = Date.now() + SECONDS*1000;
+  clearInterval(timerId);
+  timerId = setInterval(() => {
+    const left = Math.max(0, deadline - Date.now());
+    const f = left/(SECONDS*1000);
+    bar.style.transform = `scaleX(${f})`;
+    wrap.classList.toggle('low', f < .22);
+    if(left <= 0){ clearInterval(timerId); if(!locked) finish(false); }
+  }, 80);
+}
+
+/* ---------- Eingabe mit Vorschlägen ---------- */
+const guessEl = $('#guess'), suggEl = $('#sugg');
+let matches = [];
+
+guessEl.addEventListener('input', () => {
+  const q = norm(guessEl.value);
+  if(q.length < 2){ suggEl.classList.remove('on'); matches = []; return; }
+  const starts = [], has = [];
+  for(const c of NAMES){
+    if(c.k.startsWith(q)) starts.push(c.n);
+    else if(c.k.includes(q)) has.push(c.n);
+    if(starts.length >= 8) break;
+  }
+  matches = [...starts, ...has].slice(0, 8);
+  selIdx = -1;
+  suggEl.innerHTML = matches.map((m,i) =>
+    `<button type="button" data-i="${i}">${esc(m)}</button>`).join('');
+  suggEl.classList.toggle('on', matches.length > 0);
+  suggEl.querySelectorAll('button').forEach(b => b.onclick = () => submit(matches[+b.dataset.i]));
+});
+
+guessEl.addEventListener('keydown', e => {
+  if(!matches.length){ if(e.key === 'Enter') submit(guessEl.value); return; }
+  if(e.key === 'ArrowDown' || e.key === 'ArrowUp'){
+    e.preventDefault();
+    selIdx = (selIdx + (e.key === 'ArrowDown' ? 1 : -1) + matches.length) % matches.length;
+    suggEl.querySelectorAll('button').forEach((b,i) => b.classList.toggle('sel', i === selIdx));
+  } else if(e.key === 'Enter'){
+    e.preventDefault();
+    submit(selIdx >= 0 ? matches[selIdx] : matches[0]);
+  } else if(e.key === 'Escape'){ suggEl.classList.remove('on'); }
+});
+
+function submit(name){
+  if(locked || !name) return;
+  suggEl.classList.remove('on');
+  const p = G.cur.list[G.idx];
+  if(norm(name) === norm(p.n)) return finish(true);
+  tries++;
+  guessEl.value = '';
+  if(tries >= 3){ $('#verdict').textContent = 'Dritter Fehlversuch – der zählt nicht mehr.'; finish(false); }
+  else $('#verdict').textContent = `Nicht ${name}. Noch ${3-tries} ${3-tries === 1 ? 'Versuch' : 'Versuche'}.`;
+}
+
+/* ---------- Auswertung ---------- */
+function finish(solved){
+  if(locked) return;
+  locked = true; clearInterval(timerId);
+  suggEl.classList.remove('on');
+  const p = G.cur.list[G.idx];
+
+  const myPts = solved ? Math.max(1, 3 - hintsUsed) : 0;
+  const botSolved = Math.random() < G.opp.skill;
+  const botHints = botSolved ? Math.floor(Math.random()*3) : 0;
+  const botPts = botSolved ? Math.max(1, 3 - botHints) : 0;
+
+  G.me.score += myPts; G.opp.score += botPts;
+  G.cur.mine.push(myPts); G.cur.theirs.push(botPts);
+  pip(0, myPts); pip(1, botPts); paintScore();
+
+  view('v-rev');
+  $('#rev-name').textContent = p.n;
+  $('#rev-meta').textContent = [p.nat, p.pos, p.b ? 'Jahrgang '+p.b : null]
+    .filter(Boolean).join(' · ') || 'Keine weiteren Angaben';
+  $('#rev-me').innerHTML = `Du: <strong class="${myPts?'win':'lose'}">${myPts} ${myPts===1?'Punkt':'Punkte'}</strong>`
+    + (solved && hintsUsed ? ` <span style="color:var(--chalk-35)">(${hintsUsed} Hinweis${hintsUsed>1?'e':''})</span>` : '');
+  $('#rev-opp').innerHTML = `${G.opp.name.split(' ')[0]}: <strong class="${botPts?'win':'lose'}">${botPts}</strong>`;
+  $('#btn-cont').textContent = (G.idx+1 < PER_ROUND) ? 'Nächster Spieler' : 'Runde abschließen';
+}
+
+$('#btn-cont').onclick = () => {
+  G.idx++;
+  if(G.idx < PER_ROUND) askPlayer(); else roundRecap();
+};
+
+function roundRecap(){
+  G.rounds.push({cat:G.cur.cat, mine:[...G.cur.mine], theirs:[...G.cur.theirs]});
+  const m = sum(G.cur.mine), t = sum(G.cur.theirs);
+  view('v-recap');
+  $('#recap-title').textContent = m > t ? 'Runde geht an dich'
+    : m < t ? `Runde geht an ${G.opp.name.split(' ')[0]}` : 'Runde geteilt';
+  $('#recap-sub').textContent = `${G.cur.cat.name} – ${m}:${t}`;
+  $('#recap-list').innerHTML = rowsHTML(G.rounds);
+  $('#btn-next').textContent = (G.round+1 >= ROUNDS) ? 'Endstand ansehen' : `Runde ${G.round+2} starten`;
+  paintScore();
+}
+const sum = a => a.reduce((x,y)=>x+y, 0);
+
+function rowsHTML(rounds){
+  return rounds.map((r,i) => `
+    <div class="recap-row">
+      <span>${i+1}. ${r.cat.name}</span>
+      <span style="display:flex;gap:14px;align-items:center">
+        <span class="dots">${r.mine.map(p=>`<span class="dot p${p}"></span>`).join('')}</span>
+        <span class="dots">${r.theirs.map(p=>`<span class="dot p${p}"></span>`).join('')}</span>
+      </span>
+    </div>`).join('');
+}
+
+function endGame(){
+  const won = G.me.score > G.opp.score, draw = G.me.score === G.opp.score;
+  $('#end-verdict').textContent = draw ? 'Unentschieden' : won ? 'Gewonnen' : 'Verloren';
+  $('#end-verdict').className = 'display verdict-big ' + (draw ? '' : won ? 'won' : 'lost');
+  $('#end-s1').textContent = G.me.score; $('#end-s2').textContent = G.opp.score;
+  const best = G.rounds.reduce((b,r) => sum(r.mine) > b.n ? {n:sum(r.mine), c:r.cat.name} : b, {n:-1, c:'–'});
+  $('#end-note').textContent = `Stärkste Runde: ${best.c}. Gegner: ${G.opp.name}.`
+    + (IS_DEMO ? ' Gespielt mit Demo-Daten.' : '');
+  $('#end-list').innerHTML = rowsHTML(G.rounds);
+  show('s-end');
+}
+
+/* ---------- Navigation ---------- */
+$('#btn-start').onclick = () => {
+  if(!DB || DB.length < 20){ $('#datastate').textContent = 'Noch keine Daten geladen.'; return; }
+  newGame(); show('s-match'); startRound();
+};
+$('#btn-next').onclick = () => { G.round++; startRound(); };
+$('#btn-rematch').onclick = () => { newGame(); show('s-match'); startRound(); };
+$('#btn-home').onclick = () => { show('s-home'); teaseOpponent(); };
+
+function teaseOpponent(){
+  const o = OPPONENTS[Math.floor(Math.random()*OPPONENTS.length)];
+  $('#home-crest').textContent = o[0][0];
+  $('#home-opp').textContent = o[1];
+  $('#home-opp-meta').textContent = `Elo ${o[2]} · wartet auf ein Duell`;
+}
+teaseOpponent();
+
+function esc(s){ return String(s).replace(/[<>&]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;'}[c])); }
+</script>
+</body>
+</html>
